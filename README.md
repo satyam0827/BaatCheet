@@ -1,6 +1,6 @@
-# ApnaAdda - Social Connection Platform
+# BaatCheet - Social Connection Platform
 
-ApnaAdda is a modern social connection platform built with React that allows users to connect with friends, share moments, and stay in touch with loved ones.
+BaatCheet is a modern social connection platform built with React that allows users to connect with friends, share moments, and stay in touch with loved ones.
 
 ## Features
 
@@ -31,8 +31,8 @@ ApnaAdda is a modern social connection platform built with React that allows use
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/apnaadda.git
-cd apnaadda
+git clone https://github.com/yourusername/baatcheet.git
+cd baatcheet
 ```
 
 2. Install dependencies:
@@ -54,7 +54,7 @@ yarn dev
 ## Project Structure
 
 ```
-apnaadda/
+baatcheet/
 ├── client/
 │   ├── src/
 │   │   ├── components/
