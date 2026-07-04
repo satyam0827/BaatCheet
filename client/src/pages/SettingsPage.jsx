@@ -2,7 +2,7 @@ import React from 'react'
 
 const SettingsPage = () => {
   return (
-    <div>SettingsPage</div>
+    <div style={{fontSize:"30px",textAlign:"center", paddingTop:"100px"}}>SettingsPage Comming Soon!</div>
   )
 }
 
