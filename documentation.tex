@@ -1,0 +1,87 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\geometry{a4paper, margin=1in}
+
+\newcommand{\twocolentry}[2]{
+    \begin{tabular}{@{}p{0.7\textwidth}@{}p{0.3\textwidth}@{}}
+        #1 & #2
+    \end{tabular}
+}
+
+\newcommand{\onecolentry}[1]{
+    \begin{tabular}{@{}p{\textwidth}@{}}
+        #1
+    \end{tabular}
+}
+
+\newcommand{\highlights}{
+    \begin{itemize}[leftmargin=*]
+        \setlength{\itemsep}{0.2em}
+}
+
+\newcommand{\AND}{\\}
+
+\begin{document}
+
+\begin{center}
+    \Large\textbf{BaatCheet - Social Connection Platform}
+\end{center}
+
+\vspace{0.5cm}
+
+\begin{twocolentry}
+    \textbf{Social Connection Platform}-- MERN-Stack
+    \kern 5.0 pt%
+    \AND%
+    \kern 5.0 pt%
+    \href{https://github.com/yourusername/baatcheet}{Demo}
+\end{twocolentry}
+
+\vspace{0.10 cm}
+\begin{onecolentry}
+    \begin{highlights}
+        \item Developed a modern social connection platform using MERN stack for seamless user interactions and real-time communication
+        \item Implemented responsive UI using React and Tailwind CSS with beautiful authentication patterns
+        \item Built state management using custom authentication store for user management and session handling
+        \item Created reusable components with proper form validation and secure password handling
+        \item Integrated toast notifications for better user feedback and experience
+        \item Tools Used: React, React Router, Tailwind CSS, Node.js, MongoDB, Lucide React, React Hot Toast
+    \end{highlights}
+\end{onecolentry}
+
+\vspace{0.5cm}
+
+\begin{center}
+    \textbf{Key Features}
+\end{center}
+
+\begin{highlights}
+    \item User Authentication (Sign up \& Login)
+    \item Modern and Responsive UI
+    \item Secure Password Handling
+    \item Form Validation
+    \item Toast Notifications
+    \item Beautiful Authentication Patterns
+\end{highlights}
+
+\vspace{0.5cm}
+
+\begin{center}
+    \textbf{Technical Implementation}
+\end{center}
+
+\begin{highlights}
+    \item Frontend: React.js with React Router for navigation
+    \item Styling: Tailwind CSS for modern and responsive design
+    \item Icons: Lucide React for beautiful iconography
+    \item Notifications: React Hot Toast for user feedback
+    \item State Management: Custom authentication store
+    \item Form Handling: Built-in form validation with error messages
+\end{highlights}
+
+\end{document} 
