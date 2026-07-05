@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server,{
-    cors:["http://localhost:5173"],
+    cors:["http://localhost:5173",'https://baat-cheet-nine.vercel.app'],
     }
 )
 
