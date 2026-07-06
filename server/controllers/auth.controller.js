@@ -86,15 +86,27 @@ export const logIn = async (req, res) => {
 
 export const logOut = async (req, res) => {
     try {
-        res.cookie("token", "", { maxAge: 0 });
-        res.status(200).json({ message: "Logged out successfully!" });
-        console.log("logged Out!")
-      } catch (error) {
-        console.log("Error in logout controller", error.message);
-        res.status(500).json({ message: "Internal Server Error" });
-    }
-}
+        res.cookie("token", "", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            expires: new Date(0),
+        });
 
+        console.log("Logged out!");
+
+        res.status(200).json({
+            success: true,
+            message: "Logged out successfully!",
+        });
+    } catch (error) {
+        console.error("Error in logout controller:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
+    }
+};
 export const updateProfile = async (req, res) => {
     
     try {
