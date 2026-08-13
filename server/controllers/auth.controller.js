@@ -118,22 +118,32 @@ export const logOut = async (req, res) => {
 };
 export const updateProfile = async (req, res) => {
   try {
-    const { profilePic } = req.body;
+    const { fullName, profilePic } = req.body;
     const userId = req.user._id;
-    if (!profilePic) {
-      return res.status(400).json({ message: "Profile pic is required!" });
+    if (!fullName && !profilePic) {
+      return res.status(400).json({ message: "At least one field is required!" });
     }
 
+    const updateData = {};
+
+    if (fullName) {
+      updateData.fullName = fullName.trim();
+    }
+
+    if (profilePic) {
     const uploadResponse = await cloudinary.uploader.upload(profilePic);
+      updateData.profilePic = uploadResponse.secure_url;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { profilePic: uploadResponse.secure_url },
+      updateData,
       { new: true },
     );
 
     res
       .status(200)
-      .json({ success: true, message: "image uploaded!", updatedUser });
+      .json({ success: true, message: "Profile updated successfully!", updatedUser });
   } catch (error) {
     console.log("Error in uploading Profile Photo!");
     res.status(500).json({ message: "Internal server error!" });
