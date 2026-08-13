@@ -17,6 +17,23 @@ const messageSchema = new mongoose.Schema({
     image: {
         type: String,
     }
+    ,
+    forwardedFromMessageId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Message",
+    },
+    deletedFor: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+    }],
+    deliveredAt: {
+        type: Date,
+        default: null,
+    },
+    seenAt: {
+        type: Date,
+        default: null,
+    }
 }, { timestamps: true })
 
 const Message = mongoose.model("Message",messageSchema);
