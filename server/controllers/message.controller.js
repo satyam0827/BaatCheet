@@ -7,8 +7,43 @@ import User from "../models/user.schema.js";
 export const getUsersForSideBar = async (req, res) => {
     try {
         const loggedInUserId = req.user._id;
-        const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
-        res.status(200).json(filteredUsers)
+    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
+
+    const usersWithMessageMeta = await Promise.all(
+      filteredUsers.map(async (user) => {
+        const [lastMessage, unreadCount] = await Promise.all([
+          Message.findOne({
+            $or: [
+              { senderId: loggedInUserId, receiverId: user._id },
+              { senderId: user._id, receiverId: loggedInUserId },
+            ],
+            deletedFor: { $ne: loggedInUserId },
+          })
+            .sort({ createdAt: -1 })
+            .select("createdAt"),
+          Message.countDocuments({
+            senderId: user._id,
+            receiverId: loggedInUserId,
+            seenAt: null,
+            deletedFor: { $ne: loggedInUserId },
+          }),
+        ]);
+
+        return {
+          ...user.toObject(),
+          unreadCount,
+          lastMessageAt: lastMessage?.createdAt || null,
+        };
+      })
+    );
+
+    usersWithMessageMeta.sort((a, b) => {
+      const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    res.status(200).json(usersWithMessageMeta)
 
     } catch (error) {
         console.log("error in getUsersforsidebar controller");
@@ -26,8 +61,9 @@ export const getMessages = async (req, res) => {
             $or: [
                 { senderId: myId, receiverId: userToChatId },
                 { senderId: userToChatId, receiverId: myId }
-            ]
-        })
+          ],
+          deletedFor: { $ne: myId },
+        }).sort({ createdAt: 1 });
         res.status(200).json(messages);
     } catch (error) {
         console.log("error in getmessages controller!");
@@ -48,24 +84,142 @@ export const sendMessage = async (req, res) => {
         imageUrl = uploadResponse.secure_url;
       }
   
+      const receiverSocketId = getRecevierSocketId(receiverId);
+      const deliveredAt = receiverSocketId ? new Date() : null;
+
       const newMessage = new Message({
         senderId,
         receiverId,
         text,
         image: imageUrl,
+        deliveredAt,
       });
 
       console.log("you reached here!")
       await newMessage.save();
   
-      const receiverSocketId = getRecevierSocketId(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("newMessage", newMessage);
+      }
+
+      const senderSocketId = getRecevierSocketId(senderId.toString());
+      if (senderSocketId && deliveredAt) {
+        io.to(senderSocketId).emit("messageStatusUpdated", {
+          messageId: newMessage._id,
+          deliveredAt,
+          seenAt: null,
+        });
       }
   
       res.status(201).json(newMessage);
     } catch (error) {
       console.log("Error in sendMessage controller: ", error.message);
       res.status(500).json({ error: "Internal server error" });
+    }
+  };
+
+  export const deleteMessage = async (req, res) => {
+    try {
+      const { id: messageId } = req.params;
+      const { scope } = req.body;
+      const myId = req.user._id;
+
+      const message = await Message.findById(messageId);
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+
+      const deleteScope = scope === "forEveryone" ? "forEveryone" : "forMe";
+      const isSender = message.senderId.toString() === myId.toString();
+
+      if (deleteScope === "forEveryone") {
+        if (!isSender) {
+          return res.status(403).json({ message: "Only the sender can delete for everyone" });
+        }
+
+        await Message.deleteOne({ _id: messageId });
+
+        const payload = { messageId, scope: deleteScope };
+        const senderSocketId = getRecevierSocketId(message.senderId.toString());
+        const receiverSocketId = getRecevierSocketId(message.receiverId.toString());
+
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messageDeleted", payload);
+        }
+
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("messageDeleted", payload);
+        }
+
+        return res.status(200).json({ message: "Message deleted for everyone", messageId, scope: deleteScope });
+      }
+
+      if (message.deletedFor?.some((userId) => userId.toString() === myId.toString())) {
+        return res.status(200).json({ message: "Message already deleted for you", messageId, scope: deleteScope });
+      }
+
+      await Message.updateOne(
+        { _id: messageId },
+        {
+          $addToSet: {
+            deletedFor: myId,
+          },
+        }
+      );
+
+      const payload = { messageId, scope: deleteScope };
+      const mySocketId = getRecevierSocketId(myId.toString());
+      if (mySocketId) {
+        io.to(mySocketId).emit("messageDeleted", payload);
+      }
+
+      res.status(200).json({ message: "Message deleted for you", messageId, scope: deleteScope });
+    } catch (error) {
+      console.log("Error in deleteMessage controller: ", error.message);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+
+  export const forwardMessage = async (req, res) => {
+    try {
+      const { messageId, receiverId } = req.body;
+      const senderId = req.user._id;
+
+      if (!messageId || !receiverId) {
+        return res.status(400).json({ message: "messageId and receiverId are required" });
+      }
+
+      const sourceMessage = await Message.findById(messageId);
+      if (!sourceMessage) {
+        return res.status(404).json({ message: "Source message not found" });
+      }
+
+      const canForward =
+        sourceMessage.senderId.toString() === senderId.toString() ||
+        sourceMessage.receiverId.toString() === senderId.toString();
+
+      if (!canForward) {
+        return res.status(403).json({ message: "You cannot forward this message" });
+      }
+
+      const forwardedMessage = new Message({
+        senderId,
+        receiverId,
+        text: sourceMessage.text,
+        image: sourceMessage.image,
+        forwardedFromMessageId: sourceMessage._id,
+      });
+
+      await forwardedMessage.save();
+
+      const receiverSocketId = getRecevierSocketId(receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("newMessage", forwardedMessage);
+      }
+
+      res.status(201).json(forwardedMessage);
+    } catch (error) {
+      console.log("Error in forwardMessage controller: ", error.message);
+      res.status(500).json({ message: "Internal server error" });
     }
   };

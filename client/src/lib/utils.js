@@ -5,3 +5,10 @@ export function formatMessageTime(date) {
       hour12: false,
     });
   }
+
+export function formatMessageDateTime(date) {
+  return new Date(date).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
