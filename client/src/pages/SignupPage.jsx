@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore';
-import { MessageSquare, User,Mail,Eye, EyeOff, Loader2, Lock} from 'lucide-react';
+import { User,Mail,Eye, EyeOff, Loader2, Lock} from 'lucide-react';
 import { Link } from "react-router-dom";
 import AuthImagePattern from "../components/AuthImagePattern.jsx";
 import toast from "react-hot-toast";
+import logo from "../assets/logo.png";
 
 const SignupPage = () => {
   const [seePassword, setSeePassword] = useState(false);
@@ -38,12 +39,7 @@ const SignupPage = () => {
       {/* LOGO */}
       <div className="text-center mb-8">
         <div className="flex flex-col items-center gap-2 group">
-          <div
-            className="size-12 rounded-xl bg-primary/10 flex items-center justify-center 
-          group-hover:bg-primary/20 transition-colors"
-          >
-            <MessageSquare className="size-6 text-primary" />
-          </div>
+          <img src={logo} alt="Baat-Cheet logo" className="size-12 rounded-xl object-cover" />
           <h1 className="text-2xl font-bold mt-2">Create Account</h1>
           <p className="text-base-content/60">Get started with your free account</p>
         </div>
