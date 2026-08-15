@@ -34,6 +34,9 @@ export const useChatStore = create((set,get) => ({
     selectedUser: null,
     isUsersLoading: false,
     isMessagesLoading: false,
+    isLoadingMoreMessages: false,
+    hasMoreMessages: false,
+    messagePage: 1,
 
     getUsers: async () => {
         set({ isUsersLoading: true });
@@ -46,15 +49,38 @@ export const useChatStore = create((set,get) => ({
             set({ isUsersLoading: false });
         }
     },
-    getMessages: async (userId) => {
-        set({ isMessagesLoading: true })
+    getMessages: async (userId, { page = 1, limit = 20 } = {}) => {
+        if (!userId) return;
+
+        const isInitialLoad = page === 1;
+
+        set({
+            isMessagesLoading: isInitialLoad ? true : false,
+            isLoadingMoreMessages: !isInitialLoad,
+        });
+
         try {
-            const res = await axiosInstance.get(`/messages/${userId}`)
-            set({ messages: res.data });
+            const res = await axiosInstance.get(`/messages/${userId}`, {
+                params: { page, limit },
+            });
+
+            const { messages: fetchedMessages = [], pagination = {} } = res.data || {};
+            const nextMessages = isInitialLoad
+                ? fetchedMessages
+                : [...fetchedMessages, ...get().messages];
+
+            set({
+                messages: nextMessages,
+                hasMoreMessages: Boolean(pagination.hasMore),
+                messagePage: pagination.page || page,
+            });
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || "Failed to load messages");
         } finally {
-            set({ isMessagesLoading: false });
+            set({
+                isMessagesLoading: false,
+                isLoadingMoreMessages: false,
+            });
         }
     },
     sendMessage: async (messageData) => {

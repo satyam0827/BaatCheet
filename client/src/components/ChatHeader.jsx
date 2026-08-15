@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import OptimizedImage from "./OptimizedImage";
 
 const ChatHeader = () => {
   const { selectedUser, setSelectedUser } = useChatStore();
@@ -12,8 +13,13 @@ const ChatHeader = () => {
         <div className="flex items-center gap-3">
           {/* Avatar */}
           <div className="avatar">
-            <div className="size-11 rounded-full relative ring-2 ring-base-300">
-              <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.fullName} />
+            <div className="size-11 rounded-full relative ring-2 ring-base-300 overflow-hidden">
+              <OptimizedImage
+                src={selectedUser.profilePic}
+                alt={selectedUser.fullName}
+                fallbackSrc="/avatar.png"
+                className="size-full object-cover"
+              />
             </div>
           </div>
 
