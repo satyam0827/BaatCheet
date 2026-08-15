@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeleton/MessageSkeleton";
+import OptimizedImage from "./OptimizedImage";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageDateTime, formatMessageTime } from "../lib/utils";
 import { Check, CheckCheck, Copy, Forward, Info, MoreVertical, Search, SendHorizonal, Trash2, X } from "lucide-react";
@@ -13,6 +14,9 @@ const ChatContainer = () => {
     messages,
     getMessages,
     isMessagesLoading,
+    isLoadingMoreMessages,
+    hasMoreMessages,
+    messagePage,
     selectedUser,
     users,
     deleteMessage,
@@ -21,6 +25,7 @@ const ChatContainer = () => {
   } = useChatStore();
   const { authUser, onlineUsers } = useAuthStore();
   const messageEndRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(true);
   const [activeMessageMenu, setActiveMessageMenu] = useState(null);
   const [detailsMessage, setDetailsMessage] = useState(null);
   const [forwardMessageItem, setForwardMessageItem] = useState(null);
@@ -49,13 +54,20 @@ const ChatContainer = () => {
   }, []);
 
   useEffect(() => {
-    getMessages(selectedUser._id);
-  }, [selectedUser._id, getMessages]);
+    if (!selectedUser?._id) return;
+
+    shouldScrollToBottomRef.current = true;
+    getMessages(selectedUser._id, { page: 1, limit: 20 });
+  }, [selectedUser?._id, getMessages]);
 
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    if (!messages.length) return;
+
+    if (shouldScrollToBottomRef.current && messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
+
+    shouldScrollToBottomRef.current = true;
   }, [messages]);
 
   useEffect(() => {
@@ -133,6 +145,16 @@ const ChatContainer = () => {
     setActiveMessageMenu(null);
   };
 
+  const handleLoadEarlierMessages = async () => {
+    if (!selectedUser?._id || !hasMoreMessages || isLoadingMoreMessages) return;
+
+    shouldScrollToBottomRef.current = false;
+    await getMessages(selectedUser._id, {
+      page: messagePage + 1,
+      limit: 20,
+    });
+  };
+
   const getMessageTick = (message) => {
     if (message.seenAt) {
       return <CheckCheck className="size-4 text-sky-400" />;
@@ -145,7 +167,6 @@ const ChatContainer = () => {
     return <Check className="size-4 text-base-content/80" />;
   };
 
-  
   if (isMessagesLoading) {
     return (
       <div className="flex-1 flex flex-col overflow-auto">
@@ -161,17 +182,32 @@ const ChatContainer = () => {
       <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-base-200/40">
+        {hasMoreMessages && (
+          <div className="flex justify-center pb-2">
+            <button
+              type="button"
+              onClick={handleLoadEarlierMessages}
+              disabled={isLoadingMoreMessages}
+              className="btn btn-sm btn-outline rounded-full px-4"
+            >
+              {isLoadingMoreMessages ? "Loading older messages..." : "Load earlier messages"}
+            </button>
+          </div>
+        )}
+
         {messages.map((message) => (
           <div key={message._id} className={`chat chat-${message.senderId === authUser._id ? "end" : "start"} group`} ref={messageEndRef}>
             <div className=" chat-image avatar">
-              <div className="size-10 rounded-full border">
-                <img
+              <div className="size-10 rounded-full border overflow-hidden">
+                <OptimizedImage
                   src={
                     message.senderId === authUser._id
-                      ? authUser.profilePic || "/avatar.png"
-                      : selectedUser.profilePic || "/avatar.png"
+                      ? authUser.profilePic
+                      : selectedUser.profilePic
                   }
                   alt="profile pic"
+                  fallbackSrc="/avatar.png"
+                  className="size-full object-cover"
                 />
               </div>
             </div>
@@ -198,10 +234,11 @@ const ChatContainer = () => {
             </div>
             <div className="chat-bubble flex flex-col relative shadow-sm border border-base-300/40 max-w-[min(36rem,80vw)]">
               {message.image && (
-                <img
+                <OptimizedImage
                   src={message.image}
                   alt="Attachment"
-                  className="sm:max-w-[220px] rounded-md mb-2 border border-base-300/50"
+                  loading="lazy"
+                  className="sm:max-w-[220px] rounded-md mb-2 border border-base-300/50 object-cover"
                 />
               )}
               {message.text && <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>}
@@ -290,7 +327,14 @@ const ChatContainer = () => {
 
             <div className="mb-4 rounded-2xl bg-base-200/60 border border-base-300/60 p-3 text-sm">
               {detailsMessage.text ? <p className="whitespace-pre-wrap leading-relaxed">{detailsMessage.text}</p> : <p className="italic text-base-content/60">Image only message</p>}
-              {detailsMessage.image && <img src={detailsMessage.image} alt="Attachment" className="mt-3 rounded-xl border border-base-300/60 max-h-56 object-cover" />}
+              {detailsMessage.image && (
+                <OptimizedImage
+                  src={detailsMessage.image}
+                  alt="Attachment"
+                  loading="lazy"
+                  className="mt-3 rounded-xl border border-base-300/60 max-h-56 object-cover"
+                />
+              )}
             </div>
 
             <div className="grid gap-3 text-sm">
@@ -369,7 +413,14 @@ const ChatContainer = () => {
 
             <div className="mb-4 rounded-2xl border border-base-300/60 p-3 text-sm bg-base-200/60 max-h-48 overflow-auto">
               {forwardMessageItem.text && <p className="whitespace-pre-wrap leading-relaxed">{forwardMessageItem.text}</p>}
-              {forwardMessageItem.image && <img src={forwardMessageItem.image} alt="Attachment" className="mt-2 rounded-xl max-h-40 border border-base-300/60" />}
+              {forwardMessageItem.image && (
+                <OptimizedImage
+                  src={forwardMessageItem.image}
+                  alt="Attachment"
+                  loading="lazy"
+                  className="mt-2 rounded-xl max-h-40 border border-base-300/60 object-cover"
+                />
+              )}
             </div>
 
             <label className="input input-bordered flex items-center gap-2 w-full rounded-2xl mb-4 bg-base-200/60">
@@ -404,7 +455,12 @@ const ChatContainer = () => {
                     >
                       <div className="avatar">
                         <div className="size-12 rounded-full ring-2 ring-base-300 relative">
-                          <img src={user.profilePic || "/avatar.png"} alt={user.fullName} />
+                          <OptimizedImage
+                            src={user.profilePic}
+                            alt={user.fullName}
+                            fallbackSrc="/avatar.png"
+                            className="size-full object-cover"
+                          />
                           <span
                             className={`absolute bottom-0 right-0 size-3 rounded-full ring-2 ring-base-100 ${
                               isOnline ? "bg-green-500" : "bg-zinc-500"

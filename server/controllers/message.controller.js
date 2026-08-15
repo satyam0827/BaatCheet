@@ -53,21 +53,43 @@ export const getUsersForSideBar = async (req, res) => {
 
 export const getMessages = async (req, res) => {
     try {
-
         const { id: userToChatId } = req.params;
         const myId = req.user._id;
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
+        const skip = (page - 1) * limit;
 
-        const messages = await Message.find({
+        const query = {
             $or: [
                 { senderId: myId, receiverId: userToChatId },
-                { senderId: userToChatId, receiverId: myId }
-          ],
-          deletedFor: { $ne: myId },
-        }).sort({ createdAt: 1 });
-        res.status(200).json(messages);
+                { senderId: userToChatId, receiverId: myId },
+            ],
+            deletedFor: { $ne: myId },
+        };
+
+        const [messages, totalMessages] = await Promise.all([
+            Message.find(query)
+                .sort({ createdAt: 1 })
+                .skip(skip)
+                .limit(limit),
+            Message.countDocuments(query),
+        ]);
+
+        const totalPages = Math.max(1, Math.ceil(totalMessages / limit));
+
+        res.status(200).json({
+            messages,
+            pagination: {
+                page,
+                limit,
+                totalMessages,
+                totalPages,
+                hasMore: page < totalPages,
+            },
+        });
     } catch (error) {
-        console.log("error in getmessages controller!");
-        res.status(500).json({message:"Internal server error!"})
+        console.log("error in getmessages controller!", error.message);
+        res.status(500).json({ message: "Internal server error!" });
     }
 }
 
