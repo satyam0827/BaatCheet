@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
 
 },{timestamps:true});
 
+userSchema.index({ fullName: 1 });
+userSchema.index({ createdAt: -1 });
+
 //NOTE:---
 //while exporting the model mongoose expect you to enter model name as in singular form and first letter in upperCase
 //mongoose automatically converts  in lowercase and in plural form i.e User --> users

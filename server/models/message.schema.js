@@ -34,7 +34,13 @@ const messageSchema = new mongoose.Schema({
         type: Date,
         default: null,
     }
-}, { timestamps: true })
+}, { timestamps: true });
 
-const Message = mongoose.model("Message",messageSchema);
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, senderId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, seenAt: 1, deletedFor: 1 });
+messageSchema.index({ senderId: 1, receiverId: 1, seenAt: 1, deletedFor: 1 });
+messageSchema.index({ deletedFor: 1, createdAt: -1 });
+
+const Message = mongoose.model("Message", messageSchema);
 export default Message;

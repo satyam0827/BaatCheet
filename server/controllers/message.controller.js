@@ -7,49 +7,82 @@ import User from "../models/user.schema.js";
 export const getUsersForSideBar = async (req, res) => {
     try {
         const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
+        const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password").lean();
 
-    const usersWithMessageMeta = await Promise.all(
-      filteredUsers.map(async (user) => {
-        const [lastMessage, unreadCount] = await Promise.all([
-          Message.findOne({
-            $or: [
-              { senderId: loggedInUserId, receiverId: user._id },
-              { senderId: user._id, receiverId: loggedInUserId },
-            ],
-            deletedFor: { $ne: loggedInUserId },
-          })
-            .sort({ createdAt: -1 })
-            .select("createdAt"),
-          Message.countDocuments({
-            senderId: user._id,
-            receiverId: loggedInUserId,
-            seenAt: null,
-            deletedFor: { $ne: loggedInUserId },
-          }),
+        if (!filteredUsers.length) {
+            return res.status(200).json([]);
+        }
+
+        const userIds = filteredUsers.map((user) => user._id);
+
+        const messageMeta = await Message.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { senderId: loggedInUserId, receiverId: { $in: userIds } },
+                        { senderId: { $in: userIds }, receiverId: loggedInUserId },
+                    ],
+                    deletedFor: { $ne: loggedInUserId },
+                },
+            },
+            {
+                $sort: { createdAt: -1 },
+            },
+            {
+                $group: {
+                    _id: {
+                        $cond: [
+                            { $eq: ["$senderId", loggedInUserId] },
+                            "$receiverId",
+                            "$senderId",
+                        ],
+                    },
+                    lastMessageAt: { $first: "$createdAt" },
+                    unreadCount: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $eq: ["$receiverId", loggedInUserId] },
+                                        { $eq: ["$seenAt", null] },
+                                        { $not: { $in: [loggedInUserId, "$deletedFor"] } },
+                                    ],
+                                },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+                },
+            },
         ]);
 
-        return {
-          ...user.toObject(),
-          unreadCount,
-          lastMessageAt: lastMessage?.createdAt || null,
-        };
-      })
-    );
+        const messageMetaMap = new Map(
+            messageMeta.map((meta) => [meta._id.toString(), meta])
+        );
 
-    usersWithMessageMeta.sort((a, b) => {
-      const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-      const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-      return timeB - timeA;
-    });
+        const usersWithMessageMeta = filteredUsers
+            .map((user) => {
+                const meta = messageMetaMap.get(user._id.toString());
 
-    res.status(200).json(usersWithMessageMeta)
+                return {
+                    ...user,
+                    unreadCount: meta?.unreadCount || 0,
+                    lastMessageAt: meta?.lastMessageAt || null,
+                };
+            })
+            .sort((a, b) => {
+                const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+                const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+                return timeB - timeA;
+            });
 
+        res.status(200).json(usersWithMessageMeta);
     } catch (error) {
-        console.log("error in getUsersforsidebar controller");
-        res.status(500).json({ message: "Internal server error!" })
+        console.log("error in getUsersforsidebar controller", error.message);
+        res.status(500).json({ message: "Internal server error!" });
     }
-}
+};
 
 export const getMessages = async (req, res) => {
     try {
