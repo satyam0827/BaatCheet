@@ -7,7 +7,7 @@ import MessageSkeleton from "./skeleton/MessageSkeleton";
 import OptimizedImage from "./OptimizedImage";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageDateTime, formatMessageTime } from "../lib/utils";
-import { Check, CheckCheck, Copy, Forward, Info, MoreVertical, Search, SendHorizonal, Trash2, X } from "lucide-react";
+import { Check, CheckCheck, Copy, Download, Forward, Info, MoreVertical, SendHorizonal, Trash2, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 const ChatContainer = () => {
   const {
@@ -32,6 +32,7 @@ const ChatContainer = () => {
   const [forwardReceiverId, setForwardReceiverId] = useState("");
   const [forwardSearch, setForwardSearch] = useState("");
   const [deleteMessageItem, setDeleteMessageItem] = useState(null);
+  const [previewMessage, setPreviewMessage] = useState(null);
 
   useEffect(() => {
     const handleWindowClick = () => setActiveMessageMenu(null);
@@ -42,6 +43,7 @@ const ChatContainer = () => {
       setDetailsMessage(null);
       setForwardMessageItem(null);
       setDeleteMessageItem(null);
+      setPreviewMessage(null);
     };
 
     window.addEventListener("click", handleWindowClick);
@@ -52,6 +54,14 @@ const ChatContainer = () => {
       window.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = previewMessage ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [previewMessage]);
 
   useEffect(() => {
     if (!selectedUser?._id) return;
@@ -100,8 +110,41 @@ const ChatContainer = () => {
   );
 
   const handleCopyMessage = async (message) => {
-    const content = [message.text, message.image ? message.image : null].filter(Boolean).join("\n");
-    await navigator.clipboard.writeText(content || "");
+    try {
+      if (message.image) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = message.image;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+        
+        if (blob) {
+          const clipboardData = {
+            [blob.type]: blob,
+          };
+          if (message.text) {
+            clipboardData["text/plain"] = new Blob([message.text], { type: "text/plain" });
+          }
+          await navigator.clipboard.write([new ClipboardItem(clipboardData)]);
+        }
+      } else {
+        await navigator.clipboard.writeText(message.text || "");
+      }
+    } catch (error) {
+      console.error("Failed to copy message:", error);
+      const content = [message.text, message.image ? message.image : null].filter(Boolean).join("\n");
+      await navigator.clipboard.writeText(content || "");
+    }
     setActiveMessageMenu(null);
   };
 
@@ -143,6 +186,10 @@ const ChatContainer = () => {
     await deleteMessage(deleteMessageItem._id, scope);
     setDeleteMessageItem(null);
     setActiveMessageMenu(null);
+  };
+
+  const openImagePreview = (message) => {
+    setPreviewMessage(message);
   };
 
   const handleLoadEarlierMessages = async () => {
@@ -238,7 +285,8 @@ const ChatContainer = () => {
                   src={message.image}
                   alt="Attachment"
                   loading="lazy"
-                  className="sm:max-w-[220px] rounded-md mb-2 border border-base-300/50 object-cover"
+                  className="sm:max-w-[220px] rounded-md mb-2 border border-base-300/50 object-cover cursor-zoom-in hover:brightness-95 transition"
+                  onClick={() => openImagePreview(message)}
                 />
               )}
               {message.text && <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>}
@@ -495,6 +543,128 @@ const ChatContainer = () => {
           </form>
         </div>
       )}
+
+      {previewMessage && (() => {
+        const imageMessages = messages.filter((m) => m.image);
+        const currentIndex = imageMessages.findIndex((m) => m._id === previewMessage._id);
+        const hasNext = currentIndex < imageMessages.length - 1;
+        const hasPrev = currentIndex > 0;
+
+        return (
+          <div
+            className="fixed inset-0 z-[110] bg-black/95 flex flex-col"
+            onClick={() => setPreviewMessage(null)}
+          >
+            <div
+              className="h-16 shrink-0 px-4 flex items-center justify-between border-b border-white/10 bg-black/70"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/10"
+                  onClick={() => setPreviewMessage(null)}
+                  aria-label="Close image preview"
+                >
+                  <X className="size-5" />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {previewMessage.senderId === authUser._id ? "You" : selectedUser.fullName}
+                  </p>
+                  <p className="text-xs text-white/70 truncate">{formatMessageDateTime(previewMessage.createdAt)}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewMessage.image}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/10"
+                  aria-label="Download image"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Download className="size-5" />
+                </a>
+
+                <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
+                  <div tabIndex={0} role="button" className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/10">
+                    <MoreVertical className="size-5" />
+                  </div>
+                  <ul tabIndex={0} className="dropdown-content menu bg-base-100 rounded-box z-[120] w-48 p-2 shadow text-base-content">
+                    <li>
+                      <button type="button" onMouseDown={(e) => { e.preventDefault(); handleCopyMessage(previewMessage); document.activeElement.blur(); }}>
+                        <Copy className="size-4" /> Copy
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" onMouseDown={(e) => { e.preventDefault(); setPreviewMessage(null); setForwardMessageItem(previewMessage); }}>
+                        <Forward className="size-4" /> Forward
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" onMouseDown={(e) => { e.preventDefault(); setPreviewMessage(null); setDetailsMessage(previewMessage); }}>
+                        <Info className="size-4" /> Details
+                      </button>
+                    </li>
+                    {previewMessage.senderId === authUser._id && (
+                      <li>
+                        <button type="button" className="text-error hover:bg-error hover:text-error-content" onMouseDown={(e) => { e.preventDefault(); setPreviewMessage(null); setDeleteMessageItem(previewMessage); }}>
+                          <Trash2 className="size-4" /> Delete
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="flex-1 min-h-0 relative flex items-center justify-center p-4 sm:p-8 group"
+              onClick={() => setPreviewMessage(null)}
+            >
+              {hasPrev && (
+                <button
+                  type="button"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors z-10 md:opacity-0 md:group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewMessage(imageMessages[currentIndex - 1]);
+                  }}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="size-8" />
+                </button>
+              )}
+
+              <OptimizedImage
+                key={previewMessage._id}
+                src={previewMessage.image}
+                alt="Chat image preview"
+                loading="eager"
+                className="w-full h-full object-contain select-none rounded-lg cursor-default"
+                onClick={(e) => e.stopPropagation()}
+              />
+
+              {hasNext && (
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors z-10 md:opacity-0 md:group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewMessage(imageMessages[currentIndex + 1]);
+                  }}
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="size-8" />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
