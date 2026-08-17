@@ -26,6 +26,7 @@ const ChatContainer = () => {
   const { authUser, onlineUsers } = useAuthStore();
   const messageEndRef = useRef(null);
   const shouldScrollToBottomRef = useRef(true);
+  const ignorePreviewCloseRef = useRef(false);
   const [activeMessageMenu, setActiveMessageMenu] = useState(null);
   const [detailsMessage, setDetailsMessage] = useState(null);
   const [forwardMessageItem, setForwardMessageItem] = useState(null);
@@ -553,7 +554,20 @@ const ChatContainer = () => {
         return (
           <div
             className="fixed inset-0 z-[110] bg-black/95 flex flex-col"
-            onClick={() => setPreviewMessage(null)}
+            onMouseDown={() => {
+              ignorePreviewCloseRef.current = false;
+              const dropdown = document.getElementById("preview-dropdown");
+              if (dropdown && dropdown.contains(document.activeElement)) {
+                ignorePreviewCloseRef.current = true;
+              }
+            }}
+            onClick={() => {
+              if (ignorePreviewCloseRef.current) {
+                ignorePreviewCloseRef.current = false;
+                return;
+              }
+              setPreviewMessage(null);
+            }}
           >
             <div
               className="h-16 shrink-0 px-4 flex items-center justify-between border-b border-white/10 bg-black/70"
@@ -589,7 +603,7 @@ const ChatContainer = () => {
                   <Download className="size-5" />
                 </a>
 
-                <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
+                <div id="preview-dropdown" className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
                   <div tabIndex={0} role="button" className="btn btn-ghost btn-sm btn-circle text-white hover:bg-white/10">
                     <MoreVertical className="size-5" />
                   </div>
@@ -623,7 +637,6 @@ const ChatContainer = () => {
 
             <div
               className="flex-1 min-h-0 relative flex items-center justify-center p-4 sm:p-8 group"
-              onClick={() => setPreviewMessage(null)}
             >
               {hasPrev && (
                 <button
@@ -644,7 +657,7 @@ const ChatContainer = () => {
                 src={previewMessage.image}
                 alt="Chat image preview"
                 loading="eager"
-                className="w-full h-full object-contain select-none rounded-lg cursor-default"
+                className="max-w-full max-h-full object-contain select-none rounded-lg cursor-default"
                 onClick={(e) => e.stopPropagation()}
               />
 
