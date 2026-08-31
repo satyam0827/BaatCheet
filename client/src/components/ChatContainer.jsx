@@ -1,12 +1,12 @@
 import { useChatStore } from "../store/useChatStore";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeleton/MessageSkeleton";
 import OptimizedImage from "./OptimizedImage";
 import { useAuthStore } from "../store/useAuthStore";
-import { formatMessageDateTime, formatMessageTime } from "../lib/utils";
+import { formatMessageDateTime, formatMessageTime, formatMessageDate } from "../lib/utils";
 import { Check, CheckCheck, Copy, Download, Forward, Info, MoreVertical, SendHorizonal, Trash2, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 const ChatContainer = () => {
@@ -243,9 +243,23 @@ const ChatContainer = () => {
           </div>
         )}
 
-        {messages.map((message) => (
-          <div key={message._id} className={`chat chat-${message.senderId === authUser._id ? "end" : "start"} group`} ref={messageEndRef}>
-            <div className=" chat-image avatar">
+        {messages.map((message, index) => {
+          const showDateDivider =
+            index === 0 ||
+            new Date(message.createdAt).toDateString() !==
+              new Date(messages[index - 1].createdAt).toDateString();
+
+          return (
+            <Fragment key={message._id}>
+              {showDateDivider && (
+                <div className="flex justify-center my-4">
+                  <div className="bg-base-300/60 border border-base-300 backdrop-blur-sm text-base-content/70 font-medium text-[11px] uppercase tracking-wide px-3 py-1 rounded-full shadow-sm">
+                    {formatMessageDate(message.createdAt)}
+                  </div>
+                </div>
+              )}
+              <div className={`chat chat-${message.senderId === authUser._id ? "end" : "start"} group`} ref={messageEndRef}>
+                <div className=" chat-image avatar">
               <div className="size-10 rounded-full border overflow-hidden">
                 <OptimizedImage
                   src={
@@ -300,7 +314,9 @@ const ChatContainer = () => {
               </div>
             </div>
           </div>
-        ))}
+            </Fragment>
+          );
+        })}
       </div>
 
       <MessageInput />
