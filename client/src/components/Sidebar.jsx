@@ -58,7 +58,7 @@ const Sidebar = () => {
               <OptimizedImage
                 src={user.profilePic}
                 alt={user.fullName || user.name}
-                fallbackSrc="/avatar.png"
+                fallbackSrc="/profile.png"
                 className="size-12 object-cover rounded-full"
               />
               {user.unreadCount > 0 && (
