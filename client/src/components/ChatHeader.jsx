@@ -17,7 +17,7 @@ const ChatHeader = () => {
               <OptimizedImage
                 src={selectedUser.profilePic}
                 alt={selectedUser.fullName}
-                fallbackSrc="/avatar.png"
+                fallbackSrc="/profile.png"
                 className="size-full object-cover"
               />
             </div>

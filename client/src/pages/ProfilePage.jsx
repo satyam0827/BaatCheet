@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
-import { Camera, Check, Mail, PencilLine, User, X } from "lucide-react";
+import { Camera, Check, Mail, PencilLine, Trash2, User, X } from "lucide-react";
 
 const ProfilePage = () => {
   const [selectedImg, setSelectedImg] = useState(null);
   const [fullName, setFullName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const [profileAction, setProfileAction] = useState("");
+  const fileInputRef = useRef(null);
   const { authUser, isUpdatingProfile, updateProfile } = useAuthStore();
 
   useEffect(() => {
@@ -18,9 +21,16 @@ const ProfilePage = () => {
     const trimmedName = nameDraft.trim();
     if (!trimmedName || trimmedName === authUser?.fullName) return;
 
-    await updateProfile({ fullName: trimmedName });
-    setFullName(trimmedName);
-    setIsEditingName(false);
+    try {
+      setProfileAction("savingName");
+      await updateProfile({ fullName: trimmedName });
+      setFullName(trimmedName);
+      setIsEditingName(false);
+    } catch (err) {
+      console.error("Failed to save name:", err);
+    } finally {
+      setProfileAction("");
+    }
   };
 
   const handleNameCancel = () => {
@@ -38,8 +48,27 @@ const ProfilePage = () => {
     reader.onload = async () => {
       const base64Image = reader.result;
       setSelectedImg(base64Image);
-      await updateProfile({ profilePic: base64Image });
+      try {
+        setProfileAction("uploading");
+        await updateProfile({ profilePic: base64Image });
+      } catch (err) {
+        console.error("Failed to upload photo:", err);
+      } finally {
+        setProfileAction("");
+      }
     };
+  };
+
+  const handleDeleteImage = async () => {
+    try {
+      setProfileAction("deleting");
+      await updateProfile({ deleteProfilePic: true });
+      setSelectedImg(null);
+    } catch (err) {
+      console.error("Failed to delete profile picture:", err);
+    } finally {
+      setProfileAction("");
+    }
   };
 
   return (
@@ -60,30 +89,79 @@ const ProfilePage = () => {
                   alt="Profile"
                   className="size-36 rounded-full object-cover border-4 border-base-200 shadow-lg"
                 />
-                <label
-                  htmlFor="avatar-upload"
+                <button
+                  type="button"
+                  onClick={() => setShowPhotoMenu(!showPhotoMenu)}
                   className={`
-                    absolute inset-0 flex items-center justify-center rounded-full
-                    bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer
+                    absolute inset-0 flex flex-col items-center justify-center rounded-full
+                    bg-black/35 transition-opacity cursor-pointer text-white
+                    ${showPhotoMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
                     ${isUpdatingProfile ? "pointer-events-none" : ""}
                   `}
+                  disabled={isUpdatingProfile}
+                  aria-label="Edit profile picture"
                 >
-                  <div className="flex flex-col items-center gap-2 text-white">
-                    <Camera className="w-6 h-6" />
-                    <span className="text-xs font-medium">Change photo</span>
+                  <div className="flex flex-col items-center gap-2">
+                    <PencilLine className="w-6 h-6" />
+                    <span className="text-xs font-medium">Edit photo</span>
                   </div>
-                  <input
-                    type="file"
-                    id="avatar-upload"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={isUpdatingProfile}
-                  />
-                </label>
+                </button>
+
+                <input
+                  type="file"
+                  id="avatar-upload"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isUpdatingProfile}
+                />
+
+                {showPhotoMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowPhotoMenu(false)}
+                    />
+                    <div className="absolute left-1/2 -translate-x-1/2 top-[calc(100%+8px)] z-20 w-48 rounded-2xl border border-base-300 bg-base-100 shadow-xl overflow-hidden py-1">
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-base-200 text-sm font-medium text-base-content/80 text-left cursor-pointer"
+                        onClick={() => {
+                          setShowPhotoMenu(false);
+                          fileInputRef.current.click();
+                        }}
+                      >
+                        <Camera className="w-4 h-4 text-base-content/60" />
+                        <span>Upload photo</span>
+                      </button>
+                      {authUser.profilePic && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDeleteImage();
+                            setShowPhotoMenu(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-3 hover:bg-error/15 text-error text-sm font-medium border-t border-base-200"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete photo</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
               <p className="text-sm text-base-content/60">
-                {isUpdatingProfile ? "Uploading..." : "Tap the photo to update it"}
+                {isUpdatingProfile ? (
+                  profileAction === "deleting"
+                    ? "Removing photo..."
+                    : profileAction === "savingName"
+                      ? "Saving name..."
+                      : "Uploading..."
+                ) : (
+                  "Hover and click the photo to edit it"
+                )}
               </p>
             </div>
 

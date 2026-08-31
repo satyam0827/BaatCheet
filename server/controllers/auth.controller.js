@@ -116,11 +116,12 @@ export const logOut = async (req, res) => {
     });
   }
 };
+
 export const updateProfile = async (req, res) => {
   try {
-    const { fullName, profilePic } = req.body;
+    const { fullName, profilePic, deleteProfilePic } = req.body;
     const userId = req.user._id;
-    if (!fullName && !profilePic) {
+    if (!fullName && !profilePic && !deleteProfilePic) {
       return res.status(400).json({ message: "At least one field is required!" });
     }
 
@@ -130,8 +131,21 @@ export const updateProfile = async (req, res) => {
       updateData.fullName = fullName.trim();
     }
 
-    if (profilePic) {
-    const uploadResponse = await cloudinary.uploader.upload(profilePic);
+    if (deleteProfilePic) {
+      const user = await User.findById(userId);
+      if (user.profilePic) {
+        try {
+          const urlParts = user.profilePic.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          const publicId = fileName.split(".")[0];
+          await cloudinary.uploader.destroy(publicId);
+        } catch (cloudinaryError) {
+          console.log("Error deleting old profile pic from Cloudinary:", cloudinaryError.message);
+        }
+      }
+      updateData.profilePic = "";
+    } else if (profilePic) {
+      const uploadResponse = await cloudinary.uploader.upload(profilePic);
       updateData.profilePic = uploadResponse.secure_url;
     }
 

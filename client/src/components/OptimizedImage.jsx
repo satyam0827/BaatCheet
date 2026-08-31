@@ -4,7 +4,7 @@ const OptimizedImage = ({
   src,
   alt,
   className = "",
-  fallbackSrc = "/avatar.png",
+  fallbackSrc = "/profile.png",
   loading = "lazy",
   ...props
 }) => {

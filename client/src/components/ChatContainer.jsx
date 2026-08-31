@@ -268,7 +268,7 @@ const ChatContainer = () => {
                       : selectedUser.profilePic
                   }
                   alt="profile pic"
-                  fallbackSrc="/avatar.png"
+                  fallbackSrc="/profile.png"
                   className="size-full object-cover"
                 />
               </div>
@@ -523,7 +523,7 @@ const ChatContainer = () => {
                           <OptimizedImage
                             src={user.profilePic}
                             alt={user.fullName}
-                            fallbackSrc="/avatar.png"
+                            fallbackSrc="/profile.png"
                             className="size-full object-cover"
                           />
                           <span
